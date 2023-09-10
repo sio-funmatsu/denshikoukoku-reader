@@ -1,7 +1,7 @@
 import Control.Concurrent (forkIO)
 import Control.Exception (bracket)
 import Control.Monad (unless)
-import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Char8 as BSC
 import qualified Data.Text.ICU.Convert as ICU
 import Network.Socket (
     AddrInfo (addrAddress, addrFamily, addrProtocol, addrSocketType),
@@ -26,21 +26,21 @@ import System.IO (
     stdout,
  )
 
--- | Initialize encoders.
-initializeEncoders :: IO (ICU.Converter, ICU.Converter)
-initializeEncoders = do
-    enc <- ICU.open "Shift_JIS" Nothing
-    dec <- ICU.open "UTF-8" Nothing
-    return (enc, dec)
-
 -- | Main function.
 main :: IO ()
 main = do
-    let port = 23
-        url = "koukoku.shadan.open.ad.jp"
-    (encoder, decoder) <- initializeEncoders
-    addr <- resolve url port
+    (encoder, decoder) <- initializeConverters
+    let host = "koukoku.shadan.open.ad.jp"
+        port = 23
+    addr <- resolve host port
     bracket (open addr) close (talk encoder decoder)
+
+-- | Initialize converters.
+initializeConverters :: IO (ICU.Converter, ICU.Converter)
+initializeConverters = do
+    enc <- ICU.open "Shift_JIS" Nothing
+    dec <- ICU.open "UTF-8" Nothing
+    return (enc, dec)
 
 -- | Resolve host name and port number.
 resolve :: HostName -> PortNumber -> IO AddrInfo
@@ -68,8 +68,8 @@ copyShiftJIS :: ICU.Converter -> ICU.Converter -> Handle -> Handle -> IO ()
 copyShiftJIS encoder decoder src dst = do
     eof <- hIsEOF src
     unless eof $ do
-        c <- BS.hGetLine src
+        c <- BSC.hGetLine src
         let text = ICU.toUnicode decoder c
         let shiftJisData = ICU.fromUnicode encoder text
-        BS.hPutStrLn dst shiftJisData
+        BSC.hPutStrLn dst shiftJisData
         copyShiftJIS encoder decoder src dst
